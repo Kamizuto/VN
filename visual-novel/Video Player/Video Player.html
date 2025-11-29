@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portrait Video Player</title>
+    <style>
+        /* --- CSS --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Container utama player */
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 360px; /* Ukuran lebar standar HP */
+            aspect-ratio: 9 / 16; /* Rasio Portrait */
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* Elemen Video */
+        .video-element {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Agar video full layar tanpa gepeng */
+            display: block;
+        }
+
+        /* Overlay Tombol Unmute Besar (Awal) */
+        .unmute-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.3);
+            cursor: pointer;
+            z-index: 10;
+            transition: opacity 0.3s;
+        }
+        .unmute-btn-big {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            border: 2px solid #fff;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 14px;
+            pointer-events: none; /* Klik tembus ke container */
+        }
+
+        /* Controls Bar di Bawah */
+        .controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            padding: 20px 15px 15px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .video-container:hover .controls {
+            opacity: 1;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            width: 100%;
+            height: 5px;
+            background: rgba(255,255,255,0.3);
+            cursor: pointer;
+            border-radius: 5px;
+            position: relative;
+        }
+
+        .progress-filled {
+            height: 100%;
+            background: #ff0055; /* Warna bar */
+            width: 0%;
+            border-radius: 5px;
+            transition: width 0.1s linear;
+        }
+
+        /* Tombol & Waktu */
+        .buttons-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+
+        .left-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0;
+        }
+
+        .time-display {
+            font-size: 12px;
+            font-family: monospace;
+        }
+
+        /* Ikon Play/Pause sederhana dengan CSS/Text */
+        .icon {
+            display: inline-block;
+            width: 20px;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="video-container" id="videoContainer">
+        <div class="unmute-overlay" id="unmuteOverlay">
+            <div class="unmute-btn-big">🔊 Tap to Unmute</div>
+        </div>
+
+        <video class="video-element" id="mainVideo" playsinline muted autoplay loop>
+            <source src="Assets/Video/video.mp4" type="video/mp4">
+            Browser Anda tidak mendukung tag video.
+        </video>
+
+        <div class="controls">
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-filled" id="progressBar"></div>
+            </div>
+            
+            <div class="buttons-row">
+                <div class="left-controls">
+                    <button id="playPauseBtn"><span class="icon">❚❚</span></button>
+                    <button id="volumeBtn"><span class="icon">🔇</span></button>
+                    <span class="time-display">
+                        <span id="currentTime">00:00</span> / <span id="duration">00:00</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* --- JAVASCRIPT --- */
+        const video = document.getElementById('mainVideo');
+        const container = document.getElementById('videoContainer');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const volumeBtn = document.getElementById('volumeBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressContainer = document.getElementById('progressContainer');
+        const currentTimeEl = document.getElementById('currentTime');
+        const durationEl = document.getElementById('duration');
+        const unmuteOverlay = document.getElementById('unmuteOverlay');
+
+        // 1. Format Waktu (MM:SS)
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // 2. Update Progress Bar & Waktu
+        function updateProgress() {
+            const percent = (video.currentTime / video.duration) * 100;
+            progressBar.style.width = `${percent}%`;
+            currentTimeEl.innerText = formatTime(video.currentTime);
+            
+            if(!isNaN(video.duration)){
+                durationEl.innerText = formatTime(video.duration);
+            }
+        }
+
+        // 3. Klik Progress Bar (Scrubbing)
+        function setProgress(e) {
+            const width = progressContainer.clientWidth;
+            const clickX = e.offsetX;
+            const duration = video.duration;
+            video.currentTime = (clickX / width) * duration;
+        }
+
+        // 4. Toggle Play/Pause
+        function togglePlay() {
+            if (video.paused) {
+                video.play();
+                playPauseBtn.innerHTML = '<span class="icon">❚❚</span>'; // Icon Pause
+                unmuteOverlay.style.opacity = '0';
+                setTimeout(() => unmuteOverlay.style.display = 'none', 300);
+            } else {
+                video.pause();
+                playPauseBtn.innerHTML = '<span class="icon">▶</span>'; // Icon Play
+            }
+        }
+
+        // 5. Toggle Mute/Unmute
+        function toggleVolume() {
+            if (video.muted) {
+                video.muted = false;
+                volumeBtn.innerHTML = '<span class="icon">🔊</span>';
+                unmuteOverlay.style.opacity = '0';
+                setTimeout(() => unmuteOverlay.style.display = 'none', 300);
+            } else {
+                video.muted = true;
+                volumeBtn.innerHTML = '<span class="icon">🔇</span>';
+            }
+        }
+
+        // 6. Handle Overlay Click (Unmute & Play pertama kali)
+        unmuteOverlay.addEventListener('click', () => {
+            video.muted = false;
+            video.play(); // Memastikan video jalan
+            volumeBtn.innerHTML = '<span class="icon">🔊</span>';
+            playPauseBtn.innerHTML = '<span class="icon">❚❚</span>';
+            
+            // Hilangkan overlay
+            unmuteOverlay.style.opacity = '0';
+            setTimeout(() => unmuteOverlay.style.display = 'none', 300);
+        });
+
+        // Event Listeners
+        video.addEventListener('timeupdate', updateProgress);
+        video.addEventListener('click', togglePlay); // Klik video untuk pause
+        playPauseBtn.addEventListener('click', togglePlay);
+        volumeBtn.addEventListener('click', toggleVolume);
+        progressContainer.addEventListener('click', setProgress);
+
+        // Saat metadata video termuat (durasi, dll)
+        video.addEventListener('loadedmetadata', () => {
+            durationEl.innerText = formatTime(video.duration);
+        });
+
+        // Paksa autoplay saat load (Browser modern butuh muted)
+        window.addEventListener('load', () => {
+            video.muted = true;
+            video.play().catch(error => {
+                console.log("Autoplay dicegah oleh browser, menunggu interaksi user.");
+            });
+        });
+
+    </script>
+</body>
+</html>

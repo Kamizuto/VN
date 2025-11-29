@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Surprise untuk Nabila</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- RESET & BASE --- */
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            margin: 0; padding: 0;
+            background: #000;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden;
+            font-family: 'Noto Sans JP', sans-serif;
+            color: white;
+        }
+
+        /* --- STAGE UTAMA --- */
+        #game-stage {
+            position: relative;
+            width: 100%; height: 100%;
+            max-width: 480px; 
+            background-image: url('bg1.jpeg'); 
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Overlay Gelap (Vignette) */
+        #game-stage::after {
+            content: ''; position: absolute; top:0; left:0; width:100%; height:100%;
+            box-shadow: inset 0 0 80px rgba(0,0,0,0.6); pointer-events: none;
+            z-index: 1;
+        }
+
+        /* --- KARAKTER ANDHARU --- */
+        .character-sprite {
+            position: absolute;
+            bottom: 0; 
+            left: 50%; 
+            transform: translateX(-50%) translateY(30px); /* Posisi awal agak turun */
+            height: 85%; 
+            width: auto;
+            z-index: 2;
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
+            opacity: 0; 
+            transition: opacity 1s ease-out, transform 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        /* Class Aktif untuk Karakter */
+        .character-sprite.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* --- PANEL GEMBOK --- */
+        .lock-interface {
+            position: absolute;
+            top: 40%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 15; 
+            background: rgba(30, 25, 20, 0.95); 
+            border: 2px solid #c5a059;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            display: none;
+            flex-direction: column; align-items: center; gap: 15px;
+            backdrop-filter: blur(3px);
+            animation: popIn 0.5s;
+        }
+
+        @keyframes popIn {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .code-container { display: flex; gap: 5px; }
+        .digit-col { display: flex; flex-direction: column; align-items: center; }
+        
+        .num-display {
+            width: 35px; height: 45px;
+            background: #2c241b; border: 1px solid #c5a059; border-radius: 5px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 22px; font-weight: bold; color: #f4e4bc;
+        }
+
+        .arrow-btn {
+            background: none; border: none; cursor: pointer;
+            color: #c5a059; font-size: 14px; padding: 5px;
+        }
+
+        .unlock-btn {
+            padding: 10px 30px;
+            background: linear-gradient(to bottom, #c5a059, #8e7036);
+            color: #1a1a1a; border: 1px solid #f4e4bc; border-radius: 5px;
+            font-weight: bold; font-size: 14px; cursor: pointer;
+        }
+
+        /* --- KOTAK DIALOG --- */
+        .dialog-container {
+            position: absolute; bottom: 20px; left: 10px; right: 10px;
+            z-index: 10;
+            cursor: pointer;
+            display: block; /* Langsung muncul */
+        }
+
+        .name-box {
+            position: absolute; top: -30px; left: 0;
+            background: linear-gradient(to right, #4a3b2a, #2c241b);
+            border: 2px solid #c5a059; border-bottom: none;
+            padding: 5px 20px; border-radius: 8px 8px 0 0;
+            font-weight: bold; font-size: 0.9rem; color: #f4e4bc;
+            box-shadow: 2px -2px 5px rgba(0,0,0,0.3);
+        }
+
+        .text-box {
+            background: rgba(44, 36, 27, 0.95);
+            border: 2px solid #c5a059;
+            border-radius: 0 15px 15px 15px;
+            padding: 15px 20px;
+            min-height: 100px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .dialog-text { font-size: 0.95rem; line-height: 1.5; color: #f0f0f0; }
+
+        /* Segitiga Next */
+        .next-arrow {
+            position: absolute; bottom: 10px; right: 15px;
+            color: #c5a059; animation: bounce 1s infinite;
+        }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+
+        /* --- FADE TRANSITION --- */
+        .fade-overlay {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            background: black; opacity: 0; pointer-events: none;
+            transition: opacity 1.5s; z-index: 100;
+        }
+        .fade-out { opacity: 1; }
+
+    </style>
+</head>
+<body>
+
+    <audio id="sfx-appear">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx-click">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="game-stage">
+        
+        <img src="Andharu_normal.png" alt="Andharu" class="character-sprite" id="charSprite">
+
+        <div class="lock-interface" id="lockPanel">
+            <div style="font-size: 0.8rem; color: #c5a059; letter-spacing: 2px;">INPUT PASSWORD</div>
+            <div class="code-container" id="controlsWrapper"></div>
+            <button class="unlock-btn" onclick="checkPassword()">UNLOCK</button>
+        </div>
+
+        <div class="dialog-container" id="dialogContainer" onclick="advanceStory()">
+            <div class="name-box">Andharu</div>
+            <div class="text-box">
+                <div class="dialog-text" id="dialogText"></div>
+                <div class="next-arrow" id="nextArrow">▼</div>
+            </div>
+        </div>
+
+        <div class="fade-overlay" id="fadeLayer"></div>
+    </div>
+
+
+
+    <script>
+        // --- KONFIGURASI ---
+        const PASSWORD = [2, 6, 1, 1, 0, 8]; 
+        const TARGET_URL = "Visual-Novel/Visual Novel.html"; 
+
+        // --- DATA DIALOG & GAMBAR ---
+        const scenario = [
+            { 
+                text: "Halo Nabila, selamat ulang tahun yang ke tujuh belas.", 
+                img: "Assets/Character/Sandi/1.png" 
+            },
+            { 
+                text: "Anaknya loh rek udah legal loh yaa...", 
+                img: "Assets/Character/Sandi/2.png" 
+            },
+            { 
+                text: "Aku mau ngasih kamu surprise.", 
+                img: "Assets/Character/Sandi/3.png" 
+            },
+            { 
+                text: "Tapi masukkan kata sandi dari tanggal yang paling berkesan dalam hidupmu.", 
+                img: "Assets/Character/Sandi/4.png" 
+            }
+        ];
+
+        // --- RESPON SALAH ---
+        const wrongResponses = [
+            "Sandi salah!! Yang kamu inget cuma Zayne doang ya?! 😤",
+            "Bukan itu... ayo coba lagi, jangan pura-pura lupa dong.",
+            "Salah. Hint-nya: Tanggal lahir siapa hayo? 🤔"
+        ];
+
+        // --- GLOBAL VARIABLES ---
+        let currentLine = 0;
+        let storyFinished = false;
+        let currentInput = [0, 0, 0, 0, 0, 0];
+        let audioStarted = false;
+
+        // --- DOM ELEMENTS ---
+        const charSprite = document.getElementById('charSprite');
+        const dialogContainer = document.getElementById('dialogContainer');
+        const dialogText = document.getElementById('dialogText');
+        const nextArrow = document.getElementById('nextArrow');
+        const lockPanel = document.getElementById('lockPanel');
+        const sfxAppear = document.getElementById('sfx-appear');
+        const sfxClick = document.getElementById('sfx-click');
+
+        // --- START GAME (AUTO RUN) ---
+        window.onload = function() {
+            // Animasi Karakter Muncul (Fade In + Slide Up)
+            // Delay dikit (500ms) biar smooth pas loading
+            setTimeout(() => {
+                charSprite.classList.add('visible'); 
+                
+                // Coba mainkan SFX Muncul (Mungkin diblokir browser)
+                sfxAppear.volume = 0.5;
+                sfxAppear.play().catch(e => { console.log("Audio autoplay blocked, waiting for interaction"); });
+                
+                // Tampilkan dialog pertama
+                showDialog(0);
+            }, 500);
+        };
+
+        // --- SISTEM PERCAKAPAN ---
+        function advanceStory() {
+            // Trik Audio: Mainkan audio saat user klik pertama kali
+            if (!audioStarted) {
+                sfxAppear.play(); // Mainkan ulang sfx muncul kalau tadi keblokir
+                audioStarted = true;
+            }
+            
+            sfxClick.currentTime = 0;
+            sfxClick.play();
+
+            currentLine++;
+            
+            if(currentLine < scenario.length) {
+                showDialog(currentLine);
+            } else {
+                if(!storyFinished) {
+                    showLockMechanism();
+                    storyFinished = true;
+                }
+            }
+        }
+
+        // Fungsi Tampilkan Teks & Gambar
+        function showDialog(index) {
+            const data = scenario[index];
+            dialogText.innerText = data.text;
+            
+            if(data.img) {
+                charSprite.src = data.img;
+            }
+
+            // --- TRIK RESET ANIMASI CSS ---
+            charSprite.classList.remove('visible');
+            void charSprite.offsetWidth; 
+            charSprite.classList.add('visible');
+        }
+
+        // --- SISTEM GEMBOK ---
+        function showLockMechanism() {
+            nextArrow.style.display = 'none';
+            lockPanel.style.display = 'flex';
+            dialogContainer.onclick = null;
+            dialogContainer.style.cursor = "default";
+        }
+
+        const controlsWrapper = document.getElementById('controlsWrapper');
+        function initLock() {
+            controlsWrapper.innerHTML = '';
+            currentInput.forEach((val, index) => {
+                const col = document.createElement('div');
+                col.className = 'digit-col';
+                
+                const btnUp = document.createElement('button');
+                btnUp.className = 'arrow-btn';
+                btnUp.innerHTML = '▲';
+                btnUp.onclick = () => changeDigit(index, 1);
+
+                const display = document.createElement('div');
+                display.className = 'num-display';
+                display.id = `digit-${index}`;
+                display.innerText = val;
+
+                const btnDown = document.createElement('button');
+                btnDown.className = 'arrow-btn';
+                btnDown.innerHTML = '▼';
+                btnDown.onclick = () => changeDigit(index, -1);
+
+                col.append(btnUp, display, btnDown);
+                controlsWrapper.append(col);
+            });
+        }
+
+        function changeDigit(index, direction) {
+            let newVal = currentInput[index] + direction;
+            if (newVal > 9) newVal = 0;
+            if (newVal < 0) newVal = 9;
+            currentInput[index] = newVal;
+            document.getElementById(`digit-${index}`).innerText = newVal;
+        }
+
+        function checkPassword() {
+            const isMatch = currentInput.every((val, i) => val === PASSWORD[i]);
+            
+            if(isMatch) {
+                // BENAR
+                dialogText.innerText = "Benar! Happy Birthday, Nabila! ❤️";
+                dialogText.style.color = "#81ecec";
+                lockPanel.style.display = 'none';
+                
+                setTimeout(() => {
+                    document.getElementById('fadeLayer').classList.add('fade-out');
+                    setTimeout(() => window.location.href = TARGET_URL, 1500);
+                }, 1000);
+            } else {
+                // SALAH
+                const randomIndex = Math.floor(Math.random() * wrongResponses.length);
+                dialogText.innerText = wrongResponses[randomIndex];
+                dialogText.style.color = "#ff7675";
+                
+                // Efek Guncang Karakter
+                charSprite.style.transform = "translateX(-52%)";
+                setTimeout(() => charSprite.style.transform = "translateX(-48%)", 100);
+                setTimeout(() => charSprite.style.transform = "translateX(-50%)", 200);
+            }
+        }
+
+        initLock();
+
+    </script>
+</body>
+</html>

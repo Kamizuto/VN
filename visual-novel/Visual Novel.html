@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Our Story - Japanese Style</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- RESET & BASE --- */
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            margin: 0; padding: 0;
+            background: #000;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden;
+            font-family: 'Noto Sans JP', sans-serif;
+            color: white;
+        }
+
+        /* Container Utama */
+        #game-stage {
+            position: relative;
+            width: 100%; height: 100%;
+            max-width: 480px; /* Lebar maksimal HP */
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            transition: background-image 0.5s ease;
+        }
+
+        /* --- KARAKTER (UPDATE: TENGAH & ANIMASI) --- */
+        .character-sprite {
+            position: absolute;
+            bottom: 0; 
+            left: 50%; /* Pindah ke Tengah */
+            height: 85%; 
+            width: auto;
+            z-index: 1;
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.3));
+            
+            /* State Awal: Turun sedikit (30px) & Transparan */
+            opacity: 0;
+            transform: translateX(-50%) translateY(30px);
+            
+            /* Setting Transisi */
+            transition: opacity 0.5s ease-out, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Class untuk memicu animasi naik */
+        .character-sprite.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0); /* Naik ke posisi normal */
+        }
+
+        /* --- UI DIALOG --- */
+        .dialog-overlay {
+            position: absolute;
+            bottom: 30px; left: 10px; right: 10px;
+            z-index: 10;
+        }
+
+        .name-box {
+            position: absolute;
+            top: -35px; left: 0;
+            background: linear-gradient(to right, #4a3b2a, #2c241b);
+            border: 2px solid #c5a059;
+            border-bottom: none;
+            padding: 5px 25px;
+            border-radius: 10px 10px 0 0;
+            font-weight: bold; font-size: 0.9rem; color: #f4e4bc;
+            box-shadow: 2px -2px 5px rgba(0,0,0,0.3);
+            display: flex; align-items: center; gap: 5px;
+        }
+        
+        .speaker-icon { font-size: 12px; opacity: 0.7; }
+
+        .text-box {
+            background: rgba(44, 36, 27, 0.92);
+            border: 2px solid #c5a059;
+            border-radius: 0 15px 15px 15px;
+            padding: 20px 20px 30px 20px;
+            min-height: 120px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            position: relative;
+            cursor: pointer; /* Menandakan bisa diklik */
+        }
+        
+        /* Efek tekan tombol */
+        .text-box:active { transform: scale(0.99); }
+
+        .text-content {
+            font-size: 1rem; line-height: 1.6; letter-spacing: 0.5px;
+            color: #f0f0f0; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+
+        .next-indicator {
+            position: absolute; bottom: 10px; right: 15px;
+            font-size: 0.8rem; font-weight: bold; color: #c5a059;
+            animation: pulse 1s infinite; display: none;
+        }
+        @keyframes pulse { 0% { opacity: 0.5; transform: translateY(0); } 50% { opacity: 1; transform: translateY(3px); } 100% { opacity: 0.5; transform: translateY(0); } }
+
+        /* --- PILIHAN (CHOICES) --- */
+        .choices-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 20;
+            display: none; flex-direction: column;
+            justify-content: center; align-items: center; gap: 15px;
+        }
+
+        .choice-btn {
+            background: linear-gradient(to bottom, #4a3b2a, #2c241b);
+            border: 1px solid #c5a059; color: #f4e4bc;
+            padding: 15px 30px; width: 80%; text-align: center;
+            border-radius: 5px; font-size: 1rem; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); position: relative;
+            transition: transform 0.2s;
+        }
+        .choice-btn::before { content: '◆'; color: #c5a059; position: absolute; left: 10px; }
+        .choice-btn:active { transform: scale(0.95); background: #5e4b35; }
+
+        /* --- START SCREEN --- */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #2c3e50, #000000);
+            z-index: 50; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center;
+        }
+        .title { 
+            font-family: 'Noto Sans JP', sans-serif; font-size: 2.5em; color: #c5a059; 
+            text-shadow: 0 0 10px rgba(197, 160, 89, 0.5); margin-bottom: 30px; letter-spacing: 5px;
+        }
+        .start-btn {
+            padding: 12px 40px; background: transparent; color: #fff; 
+            border: 1px solid #c5a059; font-size: 1.1rem; cursor: pointer; transition: all 0.3s;
+        }
+        .start-btn:hover { background: #c5a059; color: #000; }
+
+        /* Efek Hati */
+        .heart {
+            position: absolute; color: #ff4757; font-size: 24px;
+            animation: floatUp 3s ease-in forwards; z-index: 20; pointer-events: none;
+        }
+        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-400px) scale(1.5); opacity: 0; } }
+
+        /* MINIGAME TANGKAP HATI */
+        /* [LANGKAH 2] SISIPKAN CSS INI DI DALAM TAG <style>, PALING BAWAH */
+
+        /* --- MINI GAME STYLES --- */
+        #minigame-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); /* Background gelap transparan */
+            z-index: 40; /* Di atas dialog */
+            overflow: hidden;
+        }
+
+        .falling-heart {
+            position: absolute; 
+            font-size: 45px; 
+            cursor: pointer;
+            user-select: none;
+            animation: fall linear forwards; /* Animasi jatuh */
+        }
+
+        /* Efek saat hati ditekan */
+        .falling-heart:active { 
+            transform: scale(1.5); 
+            opacity: 0; 
+            transition: 0.1s; 
+        }
+
+        /* Keyframes animasi jatuh dari atas ke bawah */
+        @keyframes fall { 
+            from { top: -60px; } 
+            to { top: 110%; } 
+        }
+
+    </style>
+</head>
+<body>
+
+    <audio id="sfx-appear">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx-click">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="start-screen">
+        <h1 class="title">Happy Birthday</h1>
+        <div style="font-size: 0.9rem; color: #888; margin-bottom: 20px;">A short visual novel</div>
+        <button class="start-btn" onclick="RomanceEngine.start()">START</button>
+    </div>
+
+    <div id="game-stage">
+        
+        <img id="char-img" class="character-sprite" src="" style="display:none;">
+
+        <div class="dialog-overlay">
+            <div class="name-box">
+                <span id="char-name">NAME</span> 
+                <span class="speaker-icon">🔊</span>
+            </div>
+            
+            <div class="text-box" onclick="RomanceEngine.next()">
+                <div id="dialogue-text" class="text-content"></div>
+                <div id="next-indicator" class="next-indicator">Tap ▼</div>
+            </div>
+        </div>
+
+        <div id="choices-area" class="choices-container"></div>
+    </div>
+
+    <!-- MINIGAME TANGKAP HATI -->
+     <div id="minigame-layer" style="display: none;">
+            <div class="game-ui-top" style="position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; font-size: 1.2rem; font-weight: bold; color: #ff7675; text-shadow: 0 0 5px #fff; pointer-events: none; z-index: 45;">
+                <span>Score: <span id="scoreVal">0</span></span>
+                <span>Time: <span id="timeVal">20</span></span>
+            </div>
+            
+            <div class="game-hint" style="position: absolute; top: 50%; width: 100%; text-align: center; color: white; font-size: 2rem; opacity: 0.3; pointer-events: none; transform: translateY(-50%);">
+                TANGKAP HATI! ❤️
+            </div>
+        </div>
+    <script>
+        // DATA CERITA
+        const storyData = {
+            "start": {
+                text: "Hehe.. aku yakin kamu tau kata sandinya",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp", 
+                char: "Assets/Character/Visual Novel/1.png", 
+                next: "andharu_confessions1"
+            },
+            "andharu_confessions1": {
+                text: "Lagian itu tanggal lahir mu sendiri, kalau gatau parah sih....",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/2.png",
+                next: "andharu_confessions2"
+            },
+            "andharu_confessions2": {
+                text: "Eh, btw. Selamat ulang tahun yang ke 17 yaa.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/3.png",
+                next: "andharu_confessions3"
+            },
+            "andharu_confessions3": {
+                text: "Semoga kamu selalu diberikan kesehatan dan kemudahan untuk setiap hal yang kamu perjuangkan.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/4.png",
+                next: "andharu_confessions4"
+            },
+            "andharu_confessions4": {
+                text: "Kamu mungkin nggak sadar, tapi keberadaanmu bikin hidup banyak orang jadi lebih berarti.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/4.png",
+                next: "andharu_confessions5"
+            },
+            "andharu_confessions5": {
+                text: "Termasuk aku.....",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/5.png",
+                next: "andharu_confessions6"
+            },
+            "andharu_confessions6": {
+                text: "Ahh, udahlah malu hehe. btw kamu terharu ga?",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/6.png",
+                next: "nabila_choice1"
+            },
+            "nabila_choice1": {
+                text: "(Andharu menatapmu dengan wajah penuh penasaran)",
+                name: "",
+                choices: [
+                    { text: "IYAAAA, AKU TERHARU BANGET HUHUHU. PENGEN NANGIS SAMBIL MELUK MAS ANDHARU", target: "andharu_confessions7", heart: true },
+                    { text: "GAK. APAAN ALAY BANGETT", target: "andharu_revenge1", heart: false }
+                ]
+            },
+            "andharu_confessions7": {
+                text: "Heheheheh, syukurlah kalau kamu terharu. Seneng banget aku denger nya.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp", 
+                char: "Assets/Character/Visual Novel/7.png", 
+                next: "andharu_confessions8"
+            },
+            "andharu_confessions8": {
+                text: "Nabila... aku mau ngomong sesuatu.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/8.png",
+                next: "zayne_appear1"
+            },
+            "andharu_revenge1": {
+                text: "Oh gitu.... ga masalah sih, aku akan bikin kamu terharu.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/9.png", 
+                next: "nabila_choice2"
+            },
+            "nabila_choice2": {
+                text: "",
+                name: "Nabila",
+                choices: [
+                    { text: "Emang gimana caranya?", target: "andharu_revenge2" },
+                    { text: "Udahlah, gausah ngesok. Aku ga bakal termakan rayuan manis mu, mas Andharu.", target: "andharu_revenge3", heart: false }
+                ]
+            },
+            "andharu_revenge2": {
+                text: "Kamu lihat aja, biar kutunjukkan cara yang ga akan pernah kamu sangka akan bikin kamu terharu.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/10.png", 
+                next: "andharu_revenge5"
+            },
+            "andharu_revenge3": {
+                text: "Cih, apalah kamu kok ngesok banget. Ga suka banget aku di giniin.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/10.png", 
+                next: "andharu_revenge4"
+            },
+            "andharu_revenge4": {
+                text: "Lihat aja pembalasan ku, NABILA EKA PUTRI SUHARTANTO!!!!",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/10.png", 
+                next: "andharu_revenge5"
+            },
+            "andharu_revenge5": {
+                text: "Ahhh, jadi agak males aku. Tapi aku mau ngomong sesuatu, kalau kamu gamau dengerin pun kupaksa dengerin.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/11.png",
+                next: "zayne_appear1"
+            },
+            "zayne_appear1": {
+                text: "Cukup. Kalian berhenti disini",
+                name: "??",
+                bg: "Assets/Background/bg1.webp",
+                char: "",
+                next: "zayne_appear2"
+            },
+            "zayne_appear2": {
+                text: "ADUHHH, SIAPA SIH GANGGU BANGET!!!",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/11.png",
+                next: "zayne_appear3"
+            },
+            "zayne_appear3": {
+                text: "Ganggu? Justru kau yang mengganggu!",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "nabila_choice3"
+            },
+            "nabila_choice3": {
+                text: "",
+                name: "Nabila",
+                choices: [
+                    { text: "LAHHHH ZAYNEE? KOK BISA KAMU DISINI? AHHHHH ZAYNE AKU KECINTAAN BANGET SAMA KAMU. BAWA AKU PERGI DARI MUSANG ITU, ZAYNEEEEEEE", target: "andharu_reject1" },
+                    { text: "APASIH MUSANG INI GANGGU BANGET. AKU LAGI NGOBROL SAMA MAS ANDHARU", target: "andharu_win1", heart: false }
+                ]
+            },
+            "andharu_reject1": {
+                text: "HATIKU HANCUR BERKEPING KEPING.. MAKAN TIDAK NAFSU, TIDUR TAK NYENYAK.. TEGANYA KAMU KEPADAKU, NABILAA.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/5.png",
+                next: "nabila_choice4"
+            },
+            "nabila_choice4": {
+                text: "",
+                name: "Nabila",
+                choices: [
+                    { text: "BODOAMAT!! HUUUU MUSANG HUUU. HANCUR BERKEPING KEPING SENDIRI SANA", target: "andharu_reject2" },
+                    { text: "AAAA JANGAN HANCUR BERKEPING KEPING MAS ANDHARUUU. AKU GAJADI PILIH ZAYNE DEHH. JUJUR DIA GANGGU BANGET.", target: "andharu_accept1", heart: false }
+                ]
+            },
+            "andharu_reject2": {
+                text: "...........",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/8.png",
+                next: "andharu_reject3"
+            },
+            "andharu_reject3": {
+                text: "Kamu memang seperti itu ya? Kasar sekali sih, tapi aku tidak peduli dengan musang itu.",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "andharu_reject4"
+            },
+            "andharu_reject4": {
+                text: "Lihat sendiri, musang. Nabila sudah terpincut sempurna oleh ku. Jadi menyerah lah",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "andharu_lose1"
+            },
+            "andharu_accept1": {
+                text: "KAMUUU INII HIIIII!! BIKIN AKU JANTUNGAN AJA. AKU TAU KOK KAMU BAKALAN MILIH AKU.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/4.png",
+                next: "andharu_accept2"
+            },
+            "andharu_accept2": {
+                text: "Lihat itu musang, Nabila terganggu. Jadi enyah lah dari sini sebelum ku kasih paham!!!",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/10.png",
+                next: "andharu_win4"
+            },
+            "andharu_win1": {
+                text: "AAAAA! CINTA DEHHH. btw iya nih apaan sih musang nya ganggu banget.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/3.png",
+                next: "andharu_win2"
+            },
+            "andharu_win2": {
+                text: "Lihat itu musang, Nabila terganggu. Jadi enyah lah dari sini sebelum ku kasih paham!!!",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/2.png",
+                next: "andharu_win3"
+            },
+            "andharu_win3": {
+                text: "Musang? Tidak pernah aku mendapatkan hinaan sehina ini...",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "andharu_win4"
+            },
+            "andharu_win4": {
+                text: "Dilihat dari manapun kau yang mirip MUSANG. Siapa nama mu tadi? Andharu?",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "andharu_win5"
+            },
+            "andharu_win5": {
+                text: "Bahkan menyebut nama mu saja aku tidak sudi!!",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "andharu_win6"
+            },
+            "andharu_win6": {
+                text: "WUISHHH KASARNYAA. Sok kull banget musang satu ini.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/1.png",
+                next: "nabila_choice5"
+            },
+            "nabila_choice5": {
+                text: "",
+                name: "Nabila",
+                choices: [
+                    { text: "KASIH PAHAM MUSANG JAHANNAM ITU, MAS ANDHARUUUUUUUU!!!", target: "andharu_win7" },
+                    { text: "MAAF AKU BERUBAH PIKIRAN. Yang musang bukan kamu, Zayne. TAPI MAS ANDHARU!!!", target: "andharu_lose1", heart: false }
+                ]
+            },
+            "andharu_win7": {
+                text: "Kau Mengganggu banget, Zayne. Ayo bertanding denganku!",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/10.png",
+                next: "zayne_declaration1"
+            },
+            "andharu_lose1": {
+                text: "..............",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/8.png",
+                next: "andharu_lose2"
+            },
+            "andharu_lose2": {
+                text: "AKU TIDAK TERIMA PENGHINAAN INI....",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/11.png",
+                next: "andharu_lose3"
+            },
+            "andharu_lose3": {
+                text: "AKU TIDAK MAU MERELAKAN NABILA. TIDAK AKAN. AKAN KUBUAT NABILA MEMILIHKU",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/11.png",
+                next: "andharu_lose4"
+            },
+            "andharu_lose4": {
+                text: "Kau sungguh pemaksa ya?",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "andharu_lose5"
+            },
+            "andharu_lose5": {
+                text: "AYO BERTANDING DENGANKU, ZAYNEEEEE!!!!!",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/10.png",
+                next: "nabila_choice6"
+            },
+            "nabila_choice6": {
+                text: "",
+                name: "Nabila",
+                choices: [
+                    { text: "UDAH COWOK COWOKKU JANGAN MEMPEREBUTKANKU. AKU SUKANYA SAMA EISER", target: "zayne_declaration1" },
+                    { text: "KASIH PAHAM MUSANG PEMAKSA ITU ZAYNEE. MESKIPUN AKU SUKANYA EISER SIH", target: "zayne_declaration1", heart: false }
+                ]
+            },
+            "zayne_declaration1": {
+                text: "Mengapa aku harus menerima tantangan mu? tapi akan ku terima sih dan enyah lah dari hadapanku!",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "zayne_declaration2"
+            },
+            "zayne_declaration2": {
+                text: "Sebelum itu, Eiser? Kamu tukang selingkuh ya ternyata.",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "zayne_declaration3"
+            },
+            "zayne_declaration3": {
+                text: "AAAAAHHHH MASA BODO SAMA EISER. KAYAK KAU BAKAL MENANG AJA MELAWANKU!!!",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/11.png",
+                next: "zayne_declaration4"
+            },
+            "zayne_declaration4": {
+                text: "Kau orang yang kasar ya?",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "zayne_declaration5"
+            },
+            "zayne_declaration5": {
+                text: "Nabila. Kamu saja yang menentukan pertandingan apa yang harus kumenangkan dari musang jahannam ini. Dan aku akan meminta kejelasan soal Eiser tadi juga.",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "zayne_declaration6"
+            },
+            "zayne_declaration6": {
+                text: "Boleh aja. Kalah lalu enyahlah",
+                name: "ANdharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/2.png",
+                next: "nabila_choice7"
+            },
+            "nabila_choice7": {
+                text: "",
+                name: "Nabila",
+                choices: [
+                    { text: "EHHHHH ZAYNEEE JANGAN SALAH PAHAM. AKU GADA HUBUNGAN APA APA SAMA EISER KOK. GAME TANGKAP HATI KAYAKNYA ROMANTISS", target: "heart1" },
+                    { text: "AKU INGIN MAIN GAME TANGKAP HATI. SUMPAHH KELIATAN ROMANTIS BANGETTTT. YAKAN COWOK COWOKKU?", target: "heart1", heart: false }
+                ]
+            },
+            "heart1": {
+                text: "Baiklah, Nabila. Untuk peraturannya gimana?",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/3.png",
+                next: "heart2"
+            },
+            "heart2": {
+                text: "Kalau Nabila bisa menangkap hati kurang atau sama dengan 10, maka dia akan jadi milikku.",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "heart3"
+            },
+            "heart3": {
+                text: "Kalau lebih dari itu dia jadi milikmu, gimana?",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "heart4"
+            },
+            "heart4": {
+                text: "Siapa takut? Akan kuhancurkan topeng musang dingin mu itu Zayne.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/10.png",
+                next: "START_GAME_HEART"
+            },
+
+            
+            "nabila_choice_zayne_win": {
+                text: "",
+                name: "Nabila",
+                choices: [
+                    { text: "AHHHHHHHH ZAAAAYYYYYNEEEEE. AKU CINTAAAA KAMUUU. WAHAI SUAMI KU YANG TAMPAN PARIPURNA MANJALITA", target: "zayne_wins_game_heart1" },
+                    { text: "HUHAHUHAHUHAHUHA OMAYGAT OMAYGAT AYANG BEBEB ZAYNEEEEE. AKU MAU PANGKU MASSSSS", target: "zayne_wins_game_heart1", heart: false }
+                ]
+            },
+            "zayne_wins_game_heart1": {
+                text: "ARRRGGGHHHHHH. AKU KALAH",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/11.png",
+                next: "zayne_wins_game_heart2"
+            },
+            "zayne_wins_game_heart2": {
+                text: "AKU MASIH TIDAK MERELAKANNYA. Tapi kalah tetaplah kalah.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/10.png",
+                next: "zayne_wins_game_heart3"
+            },
+            "zayne_wins_game_heart3": {
+                text: "Baguslah. Meskipun kamu kasar, setidaknya tidak merepotkan.",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "zayne_wins_game_heart4"
+            },
+            "zayne_wins_game_heart4": {
+                text: "Iyaa, aku akan pergi. Tapi biarkan aku memberi ini kepada Nabila.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/4.png",
+                next: "zayne_wins_game_heart5"
+            },
+            "zayne_wins_game_heart5": {
+                text: "Aku akan mengizinkan mu.",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "zayne_wins_game_heart6"
+            },
+            "zayne_wins_game_heart6": {
+                text: "Padahal aku mau memberi tahumu sesuatu. Tapi sayangnya aku kalah. Jadi aku tidak memiliki hak untuk memberi tahumu soal itu.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/7.png",
+                next: "zayne_wins_game_heart7"
+            },
+            "zayne_wins_game_heart7": {
+                text: "Maafkan aku yaa, karena gabisa menang.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/7.png",
+                next: "zayne_wins_game_heart8"
+            },
+            "zayne_wins_game_heart8": {
+                text: "Meskipun aku tahu kamu mengharapkan Zayne yang menang.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/9.png",
+                next: "zayne_wins_game_heart9"
+            },
+            "zayne_wins_game_heart9": {
+                text: "Ahhh udahlah. udah ga penting lagi. Ini untukmu",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/7.png",
+                next: "PINDAH_HALAMAN"
+            },
+
+            "nabila_choice_andharu_win": {
+                text: "",
+                name: "Nabila",
+                choices: [
+                    { text: "AKUU CINTAAA PEAANN MAS ANDHARUUU. AKU MENANG NIHHH.", target: "andharu_wins_game_heart1" },
+                    { text: "MASSSS NIKAHI AKU MASS AKU MENANG LOHHH", target: "andharu_wins_game_heart1", heart: false }
+                ]
+            },
+            "andharu_wins_game_heart1": {
+                text: "Iyaaa aku cinta kamu juga Nabila.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/3.png",
+                next: "andharu_wins_game_heart2"
+            },
+            "andharu_wins_game_heart2": {
+                text: "Aku pergi",
+                name: "Zayne",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/zaynee.png",
+                next: "andharu_wins_game_heart3"
+            },
+            "andharu_wins_game_heart3": {
+                text: "UDAHH PERGI AJA HUUUUU. JANGAN GANGGU AKU DAN NABILA LAGI MUSANG JAHANNAM.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/2.png",
+                next: "andharu_wins_game_heart4"
+            },
+            "andharu_wins_game_heart4": {
+                text: "Oh iyaa, karena aku menang aku mau ngomong sesuatu....",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/3.png",
+                next: "andharu_wins_game_heart5"
+            },
+            "andharu_wins_game_heart5": {
+                text: "Dengerin baik baik. Karena aku cuma ngomong ini sekali aja.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/3.png",
+                next: "andharu_wins_game_heart6"
+            },
+            "andharu_wins_game_heart6": {
+                text: "Terima kasih banyak udah hadir di hidupku. Udah selalu sabar sama aku. Selalu ngertiin aku, peduli dan khawatir sama aku. Intinya aku bersyukur ada kamu...",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/4.png",
+                next: "andharu_wins_game_heart7"
+            },
+            "andharu_wins_game_heart7": {
+                text: "Siapa sangka yaa.. adik kelas yang kujaga pas fortasi ini ternyata jadi orang yang berharga dan kusayang saat ini.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/6.png",
+                next: "andharu_wins_game_heart8"
+            },
+            "andharu_wins_game_heart8": {
+                text: "Oh iya btw kamu suka hadiah yang kukasih?",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/8.png",
+                next: "andharu_wins_game_heart9"
+            },
+            "andharu_wins_game_heart9": {
+                text: "Jujur aja yaa... aku bingung mau ngado apa. Awalnya aku mau ngado sepatu, tapi aku sadar kalau aku gatau ukuran sepatumu.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/7.png",
+                next: "andharu_wins_game_heart10"
+            },
+            "andharu_wins_game_heart10": {
+                text: "Terus aku mau ngado baju. Tapi hatiku berkata kalau aku ga pantes ngasih kado baju. Gatau aja aku ngerasa kayak gitu, agak aneh sih...",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/7.png",
+                next: "andharu_wins_game_heart11"
+            },
+            "andharu_wins_game_heart11": {
+                text: "Dalam pemilihan kado aku jadi sadar kalau aku ga terlalu tau soal kamu..",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/7.png",
+                next: "andharu_wins_game_heart12"
+            },
+            "andharu_wins_game_heart12": {
+                text: "Jadi mulai sekarang ayo kita saling memberi tahu selera kita. Banyak ngobrol dan bercanda ria.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/4.png",
+                next: "andharu_wins_game_heart13"
+            },
+            "andharu_wins_game_heart13": {
+                text: "Meskipun aku tau itu kayaknya sulit untuk sekarang. Kayak sekarang aja aku lebih milih nyelesaiin ini daripada ngobrol sama kamu.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/4.png",
+                next: "andharu_wins_game_heart14"
+            },
+            "andharu_wins_game_heart14": {
+                text: "Hehe.. dipikir pikir lucu sih. Aku pengen ngobrol banyak sama kamu tapi aku nya malah gabisa meluangkan waktu.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/1.png",
+                next: "andharu_wins_game_heart15"
+            },
+            "andharu_wins_game_heart15": {
+                text: "Manajemen waktu ku buruk banget yaaa.....",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/5.png",
+                next: "andharu_wins_game_heart16"
+            },
+            "andharu_wins_game_heart16": {
+                text: "Ahhh nyalahin diri sendiri pun gada gunanya.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/1.png",
+                next: "andharu_wins_game_heart17"
+            },
+            "andharu_wins_game_heart17": {
+                text: "Sekali lagi selamat ulang tahun yaaa. Sweet Seventeen.",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/7.png",
+                next: "andharu_wins_game_heart18"
+            },
+            "andharu_wins_game_heart18": {
+                text: "Oh iyaa.... coba lihat video ini",
+                name: "Andharu",
+                bg: "Assets/Background/bg1.webp",
+                char: "Assets/Character/Visual Novel/2.png",
+                next: "PINDAH_HALAMAN"
+            },
+
+
+            
+        };
+
+        // SYSTEM CORE
+        const RomanceEngine = {
+            currentScene: null,
+            isTyping: false,
+            typingInterval: null,
+            
+            elements: {
+                stage: document.getElementById('game-stage'),
+                text: document.getElementById('dialogue-text'),
+                name: document.getElementById('char-name'),
+                nameBox: document.querySelector('.name-box'),
+                charImg: document.getElementById('char-img'),
+                choices: document.getElementById('choices-area'),
+                nextIndicator: document.getElementById('next-indicator'),
+                startScreen: document.getElementById('start-screen'),
+                sfxClick: document.getElementById('sfx-click'),
+                sfxAppear: document.getElementById('sfx-appear')
+            },
+            
+            start: function() {
+                this.elements.startScreen.style.opacity = '0';
+                setTimeout(() => {
+                    this.elements.startScreen.style.display = 'none';
+                    this.loadScene('start');
+                }, 500);
+            },
+
+            loadScene: function(sceneId) {
+                if (sceneId === "START_GAME_HEART") {
+                    // Sembunyikan Dialog saat game mulai
+                    document.querySelector('.dialog-overlay').style.display = 'none';
+                    // Panggil fungsi start di MiniGame
+                    MiniGame.start(); 
+                    return; // Berhenti disini, jangan lanjut load text
+                }
+                if (sceneId === "PINDAH_HALAMAN") {
+                    // Ganti link di bawah sesuai halaman tujuanmu
+                    window.location.href = "Video Player/Video Player.html"; 
+                    return; 
+                }
+
+                const scene = storyData[sceneId];
+                this.currentScene = scene;
+
+                // 1. Background
+                if(scene.bg) this.elements.stage.style.backgroundImage = `url('${scene.bg}')`;
+                
+                // 2. Nama
+                if(scene.name) {
+                    this.elements.name.innerText = scene.name;
+                    this.elements.nameBox.style.display = "flex";
+                } else {
+                    this.elements.nameBox.style.display = "none";
+                }
+
+                // 3. Animasi Karakter & Update Gambar
+                if (scene.char) {
+                    this.elements.charImg.src = scene.char;
+                    this.elements.charImg.style.display = "block";
+                    
+                    // Reset Animasi (Trik CSS Reflow)
+                    this.elements.charImg.classList.remove('show');
+                    void this.elements.charImg.offsetWidth; 
+                    
+                    // Trigger Animasi Muncul ke Atas
+                    this.elements.charImg.classList.add('show');
+                } else {
+                    this.elements.charImg.style.display = "none";
+                    this.elements.charImg.classList.remove('show');
+                }
+
+                // 4. Reset UI
+                this.elements.choices.style.display = "none";
+                this.elements.nextIndicator.style.display = "none";
+                this.elements.text.innerHTML = "";
+
+                // 5. Typing
+                this.typeWriter(scene.text, () => {
+                    if (scene.choices) {
+                        this.showChoices(scene.choices);
+                    } else if (scene.next) {
+                        this.elements.nextIndicator.style.display = "block";
+                    }
+                });
+            },
+
+            typeWriter: function(text, callback) {
+                this.isTyping = true;
+                let i = 0; const speed = 30;
+                
+                if(this.typingInterval) clearInterval(this.typingInterval);
+
+                this.typingInterval = setInterval(() => {
+                    if (i < text.length) {
+                        this.elements.text.innerHTML += text.charAt(i);
+                        i++;
+                    } else {
+                        clearInterval(this.typingInterval);
+                        this.isTyping = false;
+                        if(callback) callback();
+                    }
+                }, speed);
+            },
+
+            showChoices: function(choices) {
+                this.elements.choices.innerHTML = "";
+                this.elements.choices.style.display = "flex";
+                choices.forEach(choice => {
+                    const btn = document.createElement('div');
+                    btn.className = 'choice-btn';
+                    btn.innerText = choice.text;
+                    btn.onclick = () => {
+                        this.playSound(); // Bunyi saat pilih
+                        if(choice.heart) this.spawnHearts();
+                        this.loadScene(choice.target);
+                    };
+                    this.elements.choices.appendChild(btn);
+                });
+            },
+
+            next: function() {
+                this.playSound(); // Bunyi saat tekan dialog
+
+                if(this.isTyping) {
+                    clearInterval(this.typingInterval);
+                    this.elements.text.innerHTML = this.currentScene.text;
+                    this.isTyping = false;
+                    if (this.currentScene.choices) this.showChoices(this.currentScene.choices);
+                    else if (this.currentScene.next) this.elements.nextIndicator.style.display = "block";
+                    return;
+                }
+
+                if (this.currentScene && this.currentScene.next) {
+                    this.loadScene(this.currentScene.next);
+                }
+            },
+
+            playSound: function() {
+                this.elements.sfxClick.currentTime = 0;
+                this.elements.sfxClick.play();
+            },
+
+            spawnHearts: function() {
+                for(let i=0; i<10; i++) {
+                    const heart = document.createElement('div');
+                    heart.className = 'heart';
+                    heart.innerHTML = '❤️';
+                    heart.style.left = Math.random() * 80 + 10 + '%';
+                    heart.style.bottom = '20%';
+                    heart.style.animationDuration = (Math.random() * 1 + 1) + 's';
+                    this.elements.stage.appendChild(heart);
+                    setTimeout(() => heart.remove(), 2000);
+                }
+            }
+        };
+
+        // MINIGAME TANGKAP HATI
+        /* [LANGKAH 3A] SISIPKAN CODE LOGIKA GAME INI DI BAGIAN BAWAH SCRIPT */
+
+        const MiniGame = {
+            score: 0,
+            timer: 20,
+            interval: null,
+            spawnInterval: null,
+            // Mengambil elemen HTML yang kita buat di Langkah 1
+            layer: document.getElementById('minigame-layer'),
+            scoreEl: document.getElementById('scoreVal'),
+            timeEl: document.getElementById('timeVal'),
+
+            // Fungsi Memulai Game
+            start: function() {
+                this.score = 0;
+                this.timer = 10;
+                
+                // Update tampilan awal
+                if(this.scoreEl) this.scoreEl.innerText = this.score;
+                if(this.timeEl) this.timeEl.innerText = this.timer;
+                
+                this.layer.style.display = 'block'; // Munculkan layar game
+
+                // Mulai Hitung Mundur (Timer)
+                this.interval = setInterval(() => {
+                    this.timer--;
+                    if(this.timeEl) this.timeEl.innerText = this.timer;
+
+                    // Jika waktu habis, game selesai
+                    if (this.timer <= 0) {
+                        this.endGame();
+                    }
+                }, 1000);
+
+                // Mulai Menjatuhkan Hati (Spawn)
+                this.spawnInterval = setInterval(() => {
+                    this.spawnHeart();
+                }, 500); // Muncul setiap 0.5 detik
+            },
+
+            // Fungsi Membuat Hati Jatuh
+            spawnHeart: function() {
+                const heart = document.createElement('div');
+                heart.className = 'falling-heart';
+                heart.innerHTML = '❤️';
+                
+                // Posisi random horizontal (5% sampai 85%)
+                heart.style.left = Math.random() * 80 + 5 + '%';
+                // Kecepatan jatuh random
+                heart.style.animationDuration = (Math.random() * 1.5 + 1.5) + 's';
+
+                // Event saat hati di-klik
+                heart.onpointerdown = () => {
+                    // Mainkan suara pop/click (mengambil dari RomanceEngine)
+                    if(RomanceEngine.elements.sfxPop) {
+                        RomanceEngine.elements.sfxPop.currentTime = 0;
+                        RomanceEngine.elements.sfxPop.play();
+                    }
+                    
+                    this.score++;
+                    if(this.scoreEl) this.scoreEl.innerText = this.score;
+                    heart.remove(); // Hapus hati dari layar
+                };
+
+                this.layer.appendChild(heart);
+                
+                // Hapus hati otomatis jika tidak diklik dan sudah jatuh ke bawah
+                setTimeout(() => heart.remove(), 3000);
+            },
+
+            // Fungsi Game Selesai
+            endGame: function() {
+                clearInterval(this.interval);
+                clearInterval(this.spawnInterval);
+                this.layer.style.display = 'none'; // Sembunyikan game
+
+                // Bersihkan sisa hati di layar
+                const hearts = document.querySelectorAll('.falling-heart');
+                hearts.forEach(h => h.remove());
+
+                // Munculkan kembali Dialog
+                const dialogOverlay = document.querySelector('.dialog-overlay');
+                if(dialogOverlay) dialogOverlay.style.display = 'block';
+
+                // LOGIKA PEMENANG SESUAI RULES KAMU
+                // <= 10 : Zayne Menang
+                // 11 - 20 (atau lebih) : Andharu Menang
+                if (this.score <= 10) {
+                    RomanceEngine.loadScene("nabila_choice_zayne_win"); 
+                } else {
+                    RomanceEngine.loadScene("nabila_choice_andharu_win");
+                }
+            }
+        };
+    </script>
+</body>
+</html>
